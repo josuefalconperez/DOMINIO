@@ -1,11 +1,11 @@
 (() => {
 "use strict";
 
-const KEY = "dominio-v7";
+const KEY = "dominio-v9";
 const $ = id => document.getElementById(id);
 
 const defaults = {
-  accounts: [], movements: [], plans: [], goals: [], subs: [], assets: [], debts: []
+  accounts: [], movements: [], plans: [], goals: [], contributions: [], subs: [], assets: [], debts: []
 };
 
 function loadDB(){
@@ -30,18 +30,42 @@ const sum = arr => arr.reduce((a,b)=>a+(Number(b)||0),0);
 
 function save(){
   localStorage.setItem(KEY, JSON.stringify(db));
-  renderAll();
+  $("contributionBtn").addEventListener("click", contributionForm);
+renderAll();
 }
 function monthMovements(){
   return db.movements.filter(m => String(m.date||"").slice(0,7) === month());
 }
 function monthlyEquivalent(p){
-  const v = Number(p.amount)||0;
-  if(!p.prorate) return p.frequency==="monthly" ? v : 0;
+  const v=Number(p.amount)||0;
+  if(p.frequency==="monthly") return v;
+  if(!p.prorate) return 0;
   return p.frequency==="quarterly" ? v/3 : p.frequency==="semiannual" ? v/6 : p.frequency==="annual" ? v/12 : v;
 }
-function monthlyCommittedExpenses(){ return sum(db.plans.filter(p=>p.countAsMonthlyExpense).map(monthlyEquivalent)); }
+function monthlySubscriptionEquivalent(s){
+  const v=Number(s.amount)||0;
+  return s.billing==="annual" ? v/12 : v;
+}
+function monthlyCommittedExpenses(){
+  return sum(db.plans.filter(p=>p.countAsMonthlyExpense).map(monthlyEquivalent))
+       + sum(db.subs.map(monthlySubscriptionEquivalent));
+}
 function reserveMonthly(){ return monthlyCommittedExpenses(); }
+
+function subscriptionDay(s){ return Math.min(31,Math.max(1,Number(s.day)||1)); }
+function subscriptionMonth(s){ return Math.min(12,Math.max(1,Number(s.month)||1)); }
+function subscriptionDueInfo(s){
+  const now=new Date(), y=now.getFullYear(), m=now.getMonth()+1, d=now.getDate();
+  const dueDay=subscriptionDay(s), dueMonth=subscriptionMonth(s);
+  if(s.billing==="monthly"){
+    return {due: d>=dueDay, label: d>=dueDay ? "Cobro previsto hoy/ya pasado" : `Próximo cobro: día ${dueDay}`};
+  }
+  if(m!==dueMonth) return {due:false,label:`Cobro anual: ${String(dueDay).padStart(2,"0")}/${String(dueMonth).padStart(2,"0")}`};
+  return {due:d>=dueDay,label:d>=dueDay?"Cobro previsto hoy/ya pasado":`Próximo cobro: ${String(dueDay).padStart(2,"0")}/${String(dueMonth).padStart(2,"0")}`};
+}
+function subscriptionDueTodayOrEarlier(){
+  return sum(db.subs.filter(s=>subscriptionDueInfo(s).due).map(s=>Number(s.amount)||0));
+}
 function globalBalance(){ return sum(db.accounts.filter(a=>a.includeGlobal).map(a=>a.balance)); }
 function availableMoney(){ return sum(db.accounts.filter(a=>a.includeAvailable).map(a=>a.balance)) - monthlyCommittedExpenses(); }
 function netWorth(){
@@ -154,9 +178,17 @@ function subForm(){
       <label>Nombre<input name="name" required placeholder="Streaming, software, gimnasio..."></label>
       <label>Importe (€)<input name="amount" type="number" min="0" step="0.01" required></label>
       <label>Forma de pago<select name="billing"><option value="monthly">Mensual</option><option value="annual">Anual</option></select></label>
+      <label>Día de cobro<input name="day" type="number" min="1" max="31" value="1" required></label>
+      <label>Mes de cobro (solo anual)<select name="month"><option value="1">Enero</option><option value="2">Febrero</option><option value="3">Marzo</option><option value="4">Abril</option><option value="5">Mayo</option><option value="6">Junio</option><option value="7">Julio</option><option value="8">Agosto</option><option value="9">Septiembre</option><option value="10">Octubre</option><option value="11">Noviembre</option><option value="12">Diciembre</option></select></label>
+      <label>Cuenta de cobro<select name="accountId"><option value="">Sin cuenta</option>${accountOptions()}</select></label>
+      <small class="tiny">DOMINIO la tendrá en cuenta como gasto mensual. El día indicado queda marcado como fecha de cobro para que sepas cuándo está previsto.</small>
       <button class="primary">Guardar suscripción</button>
     </form>`,
-    fd=>{ const v=Object.fromEntries(fd); v.id=uid(); v.amount=Number(v.amount); db.subs.push(v); save(); closeModal(); });
+    fd=>{
+      const v=Object.fromEntries(fd);
+      v.id=uid(); v.amount=Number(v.amount); v.day=Math.min(31,Math.max(1,Number(v.day)||1)); v.month=Number(v.month||1);
+      db.subs.push(v); save(); closeModal();
+    });
 }
 
 function accountForm(){
@@ -208,12 +240,19 @@ function exportBackup(){
 
 function goalHTML(g){
   const pct=Math.min(100,Math.max(0,Number(g.target)?Number(g.current||0)/Number(g.target)*100:0));
-  return `<div class="item"><div class="row"><div><b>${esc(g.name)}</b><small>${euro(g.current)} de ${euro(g.target)}</small></div><span>${Math.round(pct)}%</span></div><div class="progress"><i style="width:${pct}%"></i></div><small>+ ${euro(g.monthly)}/mes · ${esc(g.status||"En progreso")}</small></div>`;
+  return `<div class="item goalcard" data-open-goal="${g.id}">
+    <div class="row"><div><b>${esc(g.name)}</b><small>${euro(g.current||0)} de ${euro(g.target||0)}</small></div><span>${Math.round(pct)}%</span></div>
+    <div class="progress"><i style="width:${pct}%"></i></div>
+    <small>+ ${euro(g.monthly||0)}/mes · ${esc(g.status||"En progreso")}</small>
+  </div>`;
 }
+
 function subHTML(s){
-  const annual=s.billing==="monthly"?Number(s.amount)*12:Number(s.amount);
+  const annual=s.billing==="monthly"?Number(s.amount||0)*12:Number(s.amount||0);
   const monthly=annual/12;
-  return `<div class="item row"><div><b>${esc(s.name)}</b><small>${s.billing==="monthly"?"Pago mensual":"Pago anual"} · equivalente ${euro(monthly)}/mes</small></div><div class="amount">${euro(annual)}/año <button class="danger" data-delete="sub" data-id="${s.id}">×</button></div></div>`;
+  const info=subscriptionDueInfo(s);
+  const dateLabel=s.billing==="monthly"?`día ${subscriptionDay(s)}`:`${String(subscriptionDay(s)).padStart(2,"0")}/${String(subscriptionMonth(s)).padStart(2,"0")}`;
+  return `<div class="item row"><div><b>${esc(s.name)}</b><small>${s.billing==="monthly"?"Pago mensual":"Pago anual"} · ${dateLabel} · equivalente ${euro(monthly)}/mes · ${esc(info.label)}</small></div><div class="amount">${euro(annual)}/año <button class="danger" data-delete="sub" data-id="${s.id}">×</button></div></div>`;
 }
 
 function renderHome(){
@@ -291,13 +330,66 @@ function bindDeletes(){
         if(m && m.accountId){const a=db.accounts.find(x=>x.id===m.accountId);if(a)a.balance += m.kind==="income"?-m.amount:m.amount;}
         db.movements=db.movements.filter(x=>x.id!==id);
       } else {
-        const key=type==="sub"?"subs":type==="plan"?"plans":type==="goal"?"goals":type==="asset"?"assets":type==="debt"?"debts":"accounts";
+        const key=type==="sub"?"subs":type==="plan"?"plans":type==="goal"?"goals":type==="asset"?"assets":type==="debt"?"debts":type==="contribution"?"contributions":"accounts";
         db[key]=db[key].filter(x=>x.id!==id);
       }
       save();
     };
   });
 }
-function renderAll(){renderHome();renderMovements();renderPlanning();renderWealth();renderAccounts();renderReports();bindDeletes();}
+
+let activeGoalId=null;
+function openGoal(id){
+  const g=db.goals.find(x=>x.id===id); if(!g) return;
+  activeGoalId=id;
+  $("goalDetailName").textContent=g.name;
+  $("goalDetailDesc").textContent=g.date?`Objetivo para ${fmtDate(g.date)}.`:"Tu progreso, tus aportaciones y su recorrido.";
+  const contributions=db.contributions.filter(c=>c.goalId===id).slice().sort((a,b)=>String(b.date).localeCompare(String(a.date)));
+  const total=sum(contributions.map(c=>c.amount));
+  const base=Number(g.current||0);
+  // Current can be the initial amount already present; contributions are added on top only if they are tracked.
+  const current=base+total;
+  const pct=Math.min(100,Math.max(0,Number(g.target)?current/Number(g.target)*100:0));
+  $("goalDetailCurrent").textContent=euro(current);
+  $("goalDetailTarget").textContent=`de ${euro(g.target||0)}`;
+  $("goalDetailMissing").textContent=euro(Math.max(0,Number(g.target||0)-current));
+  $("goalDetailPct").textContent=Math.round(pct)+" %";
+  $("goalDetailProgress").style.width=pct+"%";
+  const byMethod={}; contributions.forEach(c=>byMethod[c.method]=(byMethod[c.method]||0)+Number(c.amount||0));
+  const summary=Object.entries(byMethod);
+  $("contributionSummary").innerHTML=summary.length
+    ? `<b>Cómo has ido aportando</b>${summary.map(([k,v])=>`<div class="row" style="padding:6px 0"><span>${esc(k)}</span><strong>${euro(v)}</strong></div>`).join("")}`
+    : `<b>Cómo has ido aportando</b><small class="tiny">Todavía no hay aportaciones registradas.</small>`;
+  $("contributionList").innerHTML=contributions.length ? contributions.map(c=>`<div class="item row"><div><b>${euro(c.amount)}</b><small>${fmtDate(c.date)} · ${esc(c.method)}${c.accountName?" · "+esc(c.accountName):""}${c.note?" · "+esc(c.note):""}</small></div><button class="danger" data-delete="contribution" data-id="${c.id}">×</button></div>`).join("") : empty("Aún no has incorporado dinero a este objetivo.");
+  bindDeletes();
+  go("goalDetail");
+}
+function bindGoalCards(){
+  document.querySelectorAll("[data-open-goal]").forEach(el=>el.onclick=()=>openGoal(el.dataset.openGoal));
+}
+function contributionForm(){
+  const g=db.goals.find(x=>x.id===activeGoalId); if(!g) return;
+  openModal("Añadir aportación", `
+    <form class="form">
+      <label>Importe (€)<input name="amount" type="number" min="0.01" step="0.01" required></label>
+      <label>Fecha<input name="date" type="date" value="${today()}" required></label>
+      <label>Cómo has incorporado el dinero<select name="method"><option>Ingreso</option><option>Transferencia</option><option>Bizum</option><option>Efectivo</option><option>Traspaso desde otra cuenta</option><option>Aportación automática</option><option>Otro</option></select></label>
+      <label>Cuenta/origen<select name="accountId"><option value="">Sin cuenta</option>${accountOptions()}</select></label>
+      <label>Nota (opcional)<input name="note" placeholder="Ej. aportación mensual"></label>
+      <button class="primary">Guardar aportación</button>
+    </form>`,
+    fd=>{
+      const v=Object.fromEntries(fd);
+      v.id=uid(); v.goalId=activeGoalId; v.amount=Number(v.amount); v.accountName=(db.accounts.find(a=>a.id===v.accountId)||{}).name||"";
+      db.contributions.push(v);
+      // A transfer from an account moves money, but does not create an extra asset.
+      if(v.accountId && v.method==="Traspaso desde otra cuenta"){
+        const a=db.accounts.find(x=>x.id===v.accountId); if(a) a.balance-=v.amount;
+      }
+      save(); closeModal(); openGoal(activeGoalId);
+    });
+}
+function renderAll(){renderHome();renderMovements();renderPlanning();renderWealth();renderAccounts();renderReports();bindDeletes();bindGoalCards();}
+$("contributionBtn").addEventListener("click", contributionForm);
 renderAll();
 })();
