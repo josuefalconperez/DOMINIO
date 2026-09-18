@@ -1,148 +1,102 @@
 <!doctype html>
 <html lang="es">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#0b1115">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="DOMINIO">
-  <link rel="manifest" href="manifest.webmanifest">
-  <link rel="icon" href="icon.svg" type="image/svg+xml">
-  <link rel="stylesheet" href="styles.css">
-  <title>DOMINIO</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#081318">
+<link rel="manifest" href="manifest.webmanifest">
+<title>DOMINIO</title>
+<link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <div class="app-shell">
-    <header class="topbar">
-      <div class="brand">
-        <div class="brand-mark" aria-hidden="true">D</div>
-        <div>
-          <div class="brand-name">DOMINIO</div>
-          <div class="brand-tag">Tu dinero. Tu patrimonio. Tu control.</div>
-        </div>
-      </div>
-      <button class="icon-btn" id="settingsBtn" aria-label="Ajustes">⚙︎</button>
-    </header>
+<div class="bg"></div>
+<header class="topbar">
+  <div class="brand"><img src="icon.svg" alt=""><div><b>DOMINIO</b><span>Tu dinero. Tu patrimonio. Tu control.</span></div></div>
+  <button id="backupBtn" class="iconbtn" title="Exportar copia">↥</button>
+</header>
 
-    <main id="app" class="main">
-      <section class="view active" data-view="inicio">
-        <div class="hero">
-          <div>
-            <span class="eyebrow">TU ESPACIO</span>
-            <h1>Empieza donde estés.</h1>
-            <p>DOMINIO crece contigo, paso a paso.</p>
-          </div>
-          <div class="hero-mark">↗</div>
-        </div>
-
-        <div class="balance-card glass">
-          <div class="card-label">Dinero realmente disponible</div>
-          <div class="balance" id="availableBalance">0,00 €</div>
-          <div class="balance-sub">Añade tus cuentas y movimientos para comenzar.</div>
-        </div>
-
-        <div class="metrics-grid">
-          <button class="metric glass" data-action="add-income">
-            <span>Ingresos</span><strong id="incomeMonth">0,00 €</strong><small>Este mes</small>
-          </button>
-          <button class="metric glass" data-action="add-expense">
-            <span>Gastos</span><strong id="expenseMonth">0,00 €</strong><small>Este mes</small>
-          </button>
-          <button class="metric glass">
-            <span>Ahorro</span><strong id="savingMonth">0,00 €</strong><small>Este mes</small>
-          </button>
-          <button class="metric glass" data-view-target="patrimonio">
-            <span>Patrimonio</span><strong id="netWorth">0,00 €</strong><small>Actual</small>
-          </button>
-        </div>
-
-        <section class="section">
-          <div class="section-head"><h2>Acciones rápidas</h2></div>
-          <div class="quick-grid">
-            <button class="quick glass" data-action="add-income"><b>＋</b><span>Ingreso</span></button>
-            <button class="quick glass" data-action="add-expense"><b>−</b><span>Gasto</span></button>
-            <button class="quick glass" data-action="add-plan"><b>◷</b><span>Previsión</span></button>
-            <button class="quick glass" data-action="add-asset"><b>◇</b><span>Activo</span></button>
-          </div>
-        </section>
-
-        <section class="section">
-          <div class="section-head"><h2>Próximos pagos</h2><button class="text-btn" data-view-target="planificacion">Ver todo</button></div>
-          <div id="upcomingEmpty" class="empty glass">
-            <div class="empty-icon">◷</div>
-            <div><strong>Aún no hay pagos previstos</strong><p>Planifica gastos futuros para saber cuánto dinero necesitas reservar.</p></div>
-          </div>
-        </section>
-      </section>
-
-      <section class="view" data-view="movimientos">
-        <div class="page-title"><span class="eyebrow">REGISTRO</span><h1>Movimientos</h1><p>Todo lo que entra y sale de tu dinero.</p></div>
-        <div class="toolbar">
-          <button class="primary-btn" data-action="add-income">＋ Ingreso</button>
-          <button class="secondary-btn" data-action="add-expense">＋ Gasto</button>
-        </div>
-        <div class="filter-row">
-          <button class="chip active" data-filter="all">Todos</button>
-          <button class="chip" data-filter="income">Ingresos</button>
-          <button class="chip" data-filter="expense">Gastos</button>
-        </div>
-        <div id="movementsList" class="list"></div>
-      </section>
-
-      <section class="view" data-view="planificacion">
-        <div class="page-title"><span class="eyebrow">ANTICÍPATE</span><h1>Planificación</h1><p>No esperes a que llegue el gasto. Prepárate para él.</p></div>
-        <div class="planning-summary glass">
-          <div><span>Reserva mensual</span><strong id="monthlyProvision">0,00 €</strong></div>
-          <div><span>Objetivos</span><strong id="goalsCount">0</strong></div>
-        </div>
-        <button class="wide-btn glass" data-action="add-plan"><span>＋</span><div><strong>Nueva previsión</strong><small>Gastos futuros, pagos anuales y reservas</small></div><b>›</b></button>
-        <button class="wide-btn glass" data-action="add-goal"><span>◇</span><div><strong>Nuevo objetivo</strong><small>Ahorro, vivienda, emergencia, viaje o personalizado</small></div><b>›</b></button>
-        <div id="plansList" class="list"></div>
-      </section>
-
-      <section class="view" data-view="patrimonio">
-        <div class="page-title"><span class="eyebrow">TU EVOLUCIÓN</span><h1>Patrimonio</h1><p>Activos menos deudas. Sin doble contabilizar.</p></div>
-        <div class="wealth-card glass">
-          <span>Patrimonio neto</span><strong id="wealthTotal">0,00 €</strong>
-          <small>Tu propio espacio financiero.</small>
-        </div>
-        <div class="wealth-grid">
-          <button class="wealth-item glass" data-action="add-asset"><span>Activos</span><strong id="assetsTotal">0,00 €</strong><small>＋ Añadir</small></button>
-          <button class="wealth-item glass" data-action="add-debt"><span>Deudas</span><strong id="debtsTotal">0,00 €</strong><small>＋ Añadir</small></button>
-        </div>
-        <div class="section"><div class="section-head"><h2>Elementos</h2></div><div id="wealthList" class="list"></div></div>
-      </section>
-
-      <section class="view" data-view="mas">
-        <div class="page-title"><span class="eyebrow">TU PROPIO ESPACIO</span><h1>Más</h1><p>Herramientas para llevar el control a tu manera.</p></div>
-        <div class="menu-list">
-          <button class="menu-row glass" data-action="add-account"><span>▣</span><div><strong>Cuentas</strong><small>Cuenta corriente, ahorro, efectivo, inversión…</small></div><b>›</b></button>
-          <button class="menu-row glass" data-view-target="movimientos"><span>↕</span><div><strong>Movimientos</strong><small>Ingresos y gastos</small></div><b>›</b></button>
-          <button class="menu-row glass" data-action="add-subscription"><span>◌</span><div><strong>Suscripciones</strong><small>Mensuales y anuales</small></div><b>›</b></button>
-          <button class="menu-row glass" data-action="add-debt"><span>▤</span><div><strong>Deudas</strong><small>Préstamos, tarjetas, financiación e hipoteca</small></div><b>›</b></button>
-          <button class="menu-row glass" data-action="backup"><span>⇩</span><div><strong>Copia de seguridad</strong><small>Exporta tus datos de DOMINIO</small></div><b>›</b></button>
-          <button class="menu-row glass" id="installBtn"><span>⌂</span><div><strong>Instalar DOMINIO</strong><small>Añádelo a la pantalla de inicio</small></div><b>›</b></button>
-        </div>
-      </section>
-    </main>
-
-    <nav class="bottom-nav" aria-label="Navegación">
-      <button class="nav-btn active" data-view-target="inicio"><span>⌂</span><small>Inicio</small></button>
-      <button class="nav-btn" data-view-target="movimientos"><span>↕</span><small>Movimientos</small></button>
-      <button class="nav-btn" data-view-target="planificacion"><span>◷</span><small>Planificación</small></button>
-      <button class="nav-btn" data-view-target="patrimonio"><span>◇</span><small>Patrimonio</small></button>
-      <button class="nav-btn" data-view-target="mas"><span>•••</span><small>Más</small></button>
-    </nav>
+<main>
+<section id="home" class="screen active">
+  <div class="hero"><div><span class="eyebrow">RESUMEN</span><h1>Tu control financiero</h1><p id="homeInsight">Empieza donde estés. DOMINIO crece contigo.</p></div></div>
+  <div class="metric mainmetric"><span>Dinero disponible</span><strong id="availableTotal">0,00 €</strong><small>Después de reservas mensuales previstas</small></div>
+  <div class="grid2">
+    <div class="metric"><span>Ingresos del mes</span><strong id="incomeTotal">0,00 €</strong></div>
+    <div class="metric"><span>Gastos del mes</span><strong id="expenseTotal">0,00 €</strong></div>
+    <div class="metric"><span>Ahorro del mes</span><strong id="savingTotal">0,00 €</strong></div>
+    <div class="metric"><span>Patrimonio</span><strong id="wealthTotal">0,00 €</strong></div>
   </div>
+  <div class="sectionhead"><h2>Próximamente</h2><span id="upcomingCount">0</span></div>
+  <div id="homeUpcoming" class="stack"></div>
+  <div class="sectionhead"><h2>Objetivos</h2><span id="homeGoalCount">0</span></div>
+  <div id="homeGoals" class="stack"></div>
+  <div class="sectionhead"><h2>Suscripciones</h2><span id="homeSubCount">0</span></div>
+  <div id="homeSubs" class="stack"></div>
+</section>
 
-  <div class="modal-backdrop" id="modalBackdrop" hidden>
-    <div class="modal glass" role="dialog" aria-modal="true">
-      <button class="modal-close" id="modalClose" aria-label="Cerrar">×</button>
-      <div id="modalContent"></div>
-    </div>
+<section id="movements" class="screen">
+  <div class="hero compact"><span class="eyebrow">MOVIMIENTOS</span><h1>Entradas y salidas</h1><p>Registra lo que ocurre y asócialo a una cuenta.</p></div>
+  <div class="actions"><button class="primary" id="incomeBtn">+ Ingreso</button><button class="secondary" id="expenseBtn">− Gasto</button></div>
+  <div id="movementList" class="stack"></div>
+</section>
+
+<section id="planning" class="screen">
+  <div class="hero compact"><span class="eyebrow">PLANIFICACIÓN</span><h1>Anticípate al gasto</h1><p>No esperes a que llegue el gasto. Prepárate para él.</p></div>
+  <div class="metric"><span>Reserva mensual necesaria</span><strong id="reserveTotal">0,00 €</strong></div>
+  <div class="sectionhead"><h2>Previsiones</h2><button id="planBtn" class="mini">+ Añadir</button></div>
+  <div id="planList" class="stack"></div>
+  <div class="sectionhead"><h2>Objetivos</h2><button id="goalBtn" class="mini">+ Añadir</button></div>
+  <div id="goalList" class="stack"></div>
+  <div class="sectionhead"><h2>Suscripciones</h2><button id="subBtn" class="mini">+ Añadir</button></div>
+  <div id="subList" class="stack"></div>
+</section>
+
+<section id="wealth" class="screen">
+  <div class="hero compact"><span class="eyebrow">PATRIMONIO</span><h1>Lo que estás construyendo</h1><p>Activos menos deudas. Cada euro cuenta.</p></div>
+  <div class="metric mainmetric"><span>Patrimonio neto</span><strong id="wealthBig">0,00 €</strong></div>
+  <div class="sectionhead"><h2>Cuentas incluidas</h2></div>
+  <div id="wealthAccounts" class="stack"></div>
+  <div class="sectionhead"><h2>Activos</h2><button id="assetBtn" class="mini">+ Añadir</button></div>
+  <div id="assetList" class="stack"></div>
+  <div class="sectionhead"><h2>Deudas</h2><button id="debtBtn" class="mini">+ Añadir</button></div>
+  <div id="debtList" class="stack"></div>
+</section>
+
+<section id="more" class="screen">
+  <div class="hero compact"><span class="eyebrow">MÁS</span><h1>Tu propio espacio</h1><p>Herramientas y control de tu información.</p></div>
+  <div class="card menuitem" id="accountsOpen"><div><b>Cuentas</b><span>Ver y configurar cada tipo por separado</span></div><strong>›</strong></div>
+  <div class="card menuitem" id="reportsOpen"><div><b>Análisis</b><span>Consulta la evolución de tus números</span></div><strong>›</strong></div>
+  <div class="card menuitem" id="exportOpen"><div><b>Copia de seguridad</b><span>Exporta todos tus datos en JSON</span></div><strong>↥</strong></div>
+  <div class="card menuitem"><div><b>Privacidad</b><span>Tus datos se guardan localmente en este dispositivo.</span></div><strong>•</strong></div>
+</section>
+
+<section id="accounts" class="screen subpage">
+  <div class="hero compact"><button class="back" data-back="more">‹ Más</button><span class="eyebrow">CUENTAS</span><h1>Ver tus cuentas</h1><p>Elige qué entra en disponible, global y patrimonio.</p></div>
+  <div class="actions"><button class="primary" id="accountBtn">+ Cuenta</button></div>
+  <div id="accountFilters" class="filters"></div>
+  <div id="accountList" class="stack"></div>
+</section>
+
+<section id="reports" class="screen subpage">
+  <div class="hero compact"><button class="back" data-back="more">‹ Más</button><span class="eyebrow">ANÁLISIS</span><h1>Tu evolución</h1><p>Datos objetivos para entender tu recorrido.</p></div>
+  <div class="grid2">
+    <div class="metric"><span>Ingresos</span><strong id="reportIncome">0,00 €</strong></div>
+    <div class="metric"><span>Gastos</span><strong id="reportExpense">0,00 €</strong></div>
+    <div class="metric"><span>Ahorro</span><strong id="reportSaving">0,00 €</strong></div>
+    <div class="metric"><span>Tasa de ahorro</span><strong id="reportRate">0 %</strong></div>
   </div>
+  <div class="card"><h3>Distribución por categoría</h3><div id="categoryReport"></div></div>
+</section>
+</main>
 
-  <script src="app.js"></script>
+<nav class="nav">
+ <button data-nav="home" class="active"><span>⌂</span>Inicio</button>
+ <button data-nav="movements"><span>↕</span>Movimientos</button>
+ <button data-nav="planning"><span>◷</span>Planificación</button>
+ <button data-nav="wealth"><span>◈</span>Patrimonio</button>
+ <button data-nav="more"><span>•••</span>Más</button>
+</nav>
+
+<div id="modal" class="modal hidden"><div class="modalbox"><button id="modalClose" class="close">×</button><div id="modalContent"></div></div></div>
+<script src="app.js"></script>
 </body>
 </html>

@@ -1,13 +1,1 @@
-{
-  "name": "DOMINIO",
-  "short_name": "DOMINIO",
-  "description": "Tu dinero. Tu patrimonio. Tu control.",
-  "start_url": "./",
-  "display": "standalone",
-  "background_color": "#071015",
-  "theme_color": "#0b1115",
-  "lang": "es",
-  "icons": [
-    {"src":"icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}
-  ]
-}
+{"name":"DOMINIO","short_name":"DOMINIO","start_url":".","display":"standalone","background_color":"#071116","theme_color":"#081318","lang":"es","icons":[{"src":"icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}]}
