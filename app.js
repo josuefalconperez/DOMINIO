@@ -35,20 +35,23 @@ function save(){
 function monthMovements(){
   return db.movements.filter(m => String(m.date||"").slice(0,7) === month());
 }
-function monthlyPlan(p){
+function monthlyEquivalent(p){
   const v = Number(p.amount)||0;
+  if(!p.prorate) return p.frequency==="monthly" ? v : 0;
   return p.frequency==="quarterly" ? v/3 : p.frequency==="semiannual" ? v/6 : p.frequency==="annual" ? v/12 : v;
 }
-function reserveMonthly(){ return sum(db.plans.map(monthlyPlan)); }
+function monthlyCommittedExpenses(){ return sum(db.plans.filter(p=>p.countAsMonthlyExpense).map(monthlyEquivalent)); }
+function reserveMonthly(){ return monthlyCommittedExpenses(); }
 function globalBalance(){ return sum(db.accounts.filter(a=>a.includeGlobal).map(a=>a.balance)); }
-function availableMoney(){ return sum(db.accounts.filter(a=>a.includeAvailable).map(a=>a.balance)) - reserveMonthly(); }
+function availableMoney(){ return sum(db.accounts.filter(a=>a.includeAvailable).map(a=>a.balance)) - monthlyCommittedExpenses(); }
 function netWorth(){
   return sum(db.accounts.filter(a=>a.includePatrimony).map(a=>a.balance))
     + sum(db.assets.map(a=>a.value))
     - sum(db.debts.map(d=>d.outstanding));
 }
 function incomes(){ return sum(monthMovements().filter(m=>m.kind==="income").map(m=>m.amount)); }
-function expenses(){ return sum(monthMovements().filter(m=>m.kind==="expense").map(m=>m.amount)); }
+function actualExpenses(){ return sum(monthMovements().filter(m=>m.kind==="expense").map(m=>m.amount)); }
+function expenses(){ return actualExpenses() + monthlyCommittedExpenses(); }
 
 function go(id){
   document.querySelectorAll(".screen").forEach(s=>s.classList.remove("active"));
@@ -104,14 +107,32 @@ function movementForm(kind){
 
 function planForm(){
   openModal("Nueva previsión", `
-    <form class="form">
+    <form class="form" id="planForm">
       <label>Concepto<input name="name" required placeholder="Seguro, impuesto, reparación..."></label>
-      <label>Importe (€)<input name="amount" type="number" min="0" step="0.01" required></label>
-      <label>Periodicidad<select name="frequency"><option value="monthly">Mensual</option><option value="quarterly">Trimestral</option><option value="semiannual">Semestral</option><option value="annual">Anual</option></select></label>
-      <label>Fecha prevista<input name="date" type="date"></label>
+      <label>Importe del gasto (€)<input name="amount" type="number" min="0" step="0.01" required></label>
+      <label>Periodicidad<select name="frequency">
+        <option value="monthly">Mensual</option>
+        <option value="quarterly">Trimestral</option>
+        <option value="semiannual">Semestral</option>
+        <option value="annual">Anual</option>
+      </select></label>
+      <label>Fecha de pago prevista<input name="date" type="date"></label>
+      <label class="check"><input type="checkbox" name="prorate" checked> Prorratear este gasto durante el año</label>
+      <small class="tiny">Ejemplo: 413 € anuales → 34,42 €/mes. DOMINIO lo tendrá en cuenta desde el día 1 de cada mes.</small>
+      <label class="check"><input type="checkbox" name="countAsMonthlyExpense" checked> Contabilizar como gasto mensual previsto</label>
+      <small class="tiny">Así el cálculo de dinero disponible y ahorro mensual incluye esta cantidad aunque el pago real llegue más adelante.</small>
       <button class="primary">Guardar previsión</button>
     </form>`,
-    fd=>{ const v=Object.fromEntries(fd); v.id=uid(); v.amount=Number(v.amount); db.plans.push(v); save(); closeModal(); });
+    fd=>{
+      const v=Object.fromEntries(fd);
+      v.id=uid(); v.amount=Number(v.amount);
+      v.prorate=!!v.prorate;
+      v.countAsMonthlyExpense=!!v.countAsMonthlyExpense;
+      // A monthly expense is inherently a monthly commitment.
+      if(v.frequency==="monthly") v.prorate=true;
+      db.plans.push(v);
+      save(); closeModal();
+    });
 }
 
 function goalForm(){
@@ -202,11 +223,11 @@ function renderHome(){
   $("expenseTotal").textContent=euro(exp);
   $("savingTotal").textContent=euro(sav);
   $("wealthTotal").textContent=euro(netWorth());
-  $("homeInsight").textContent=db.movements.length?`Este mes has ahorrado ${euro(sav)}. Cada pequeño avance cuenta.`:"Empieza donde estés. DOMINIO crece contigo.";
+  $("homeInsight").textContent=(db.movements.length || db.plans.length)?`Este mes tienes ${euro(monthlyCommittedExpenses())} de gastos previstos comprometidos. Cada pequeño avance cuenta.`:"Empieza donde estés. DOMINIO crece contigo.";
   $("upcomingCount").textContent=db.plans.length;
   $("homeGoalCount").textContent=db.goals.length;
   $("homeSubCount").textContent=db.subs.length;
-  $("homeUpcoming").innerHTML=db.plans.length?db.plans.slice(0,4).map(p=>`<div class="item row"><div><b>${esc(p.name)}</b><small>Reserva ${euro(monthlyPlan(p))}/mes</small></div><span class="amount">${euro(p.amount)}</span></div>`).join(""):empty("No tienes previsiones todavía.");
+  $("homeUpcoming").innerHTML=db.plans.length?db.plans.slice(0,4).map(p=>`<div class="item row"><div><b>${esc(p.name)}</b><small>Reserva ${euro(monthlyEquivalent(p))}/mes</small></div><span class="amount">${euro(p.amount)}</span></div>`).join(""):empty("No tienes previsiones todavía.");
   $("homeGoals").innerHTML=db.goals.length?db.goals.slice(0,4).map(goalHTML).join(""):empty("No tienes objetivos todavía.");
   $("homeSubs").innerHTML=db.subs.length?db.subs.slice(0,4).map(subHTML).join(""):empty("No tienes suscripciones todavía.");
 }
@@ -219,8 +240,10 @@ function renderMovements(){
 }
 
 function renderPlanning(){
-  $("reserveTotal").textContent=euro(reserveMonthly());
-  $("planList").innerHTML=db.plans.length?db.plans.map(p=>`<div class="item row"><div><b>${esc(p.name)}</b><small>${esc(p.frequency)} · reserva ${euro(monthlyPlan(p))}/mes</small></div><div><span class="amount">${euro(p.amount)}</span> <button class="danger" data-delete="plan" data-id="${p.id}">×</button></div></div>`).join(""):empty("No hay previsiones. Ejemplo: 400 € al año = 33,33 € al mes.");
+  $("reserveTotal").textContent=euro(monthlyCommittedExpenses());
+  $("actualExpensePlanning").textContent=euro(actualExpenses());
+  $("plannedExpensePlanning").textContent=euro(monthlyCommittedExpenses());
+  $("planList").innerHTML=db.plans.length?db.plans.map(p=>`<div class="item row"><div><b>${esc(p.name)}</b><small>${esc(p.frequency)} · ${p.prorate?"prorrateado":"sin prorratear"} · ${p.countAsMonthlyExpense?"gasto mensual previsto":"solo previsión"} · ${euro(monthlyEquivalent(p))}/mes</small></div><div><span class="amount">${euro(p.amount)}</span> <button class="danger" data-delete="plan" data-id="${p.id}">×</button></div></div>`).join(""):empty("No hay previsiones. Ejemplo: 400 € al año = 33,33 € al mes.");
   $("goalList").innerHTML=db.goals.length?db.goals.map(g=>goalHTML(g)+`<button class="danger" data-delete="goal" data-id="${g.id}">Eliminar objetivo</button>`).join(""):empty("No hay objetivos.");
   $("subList").innerHTML=db.subs.length?db.subs.map(subHTML).join(""):empty("No hay suscripciones.");
 }
