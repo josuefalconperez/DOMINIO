@@ -1,7 +1,7 @@
 (() => {
 "use strict";
 
-const KEY = "dominio-v9";
+const KEY = "dominio-v10";
 const $ = id => document.getElementById(id);
 
 const defaults = {
@@ -212,6 +212,68 @@ function accountForm(){
     });
 }
 
+
+function assetExpenses(assetId){
+  return db.assetExpenses.filter(x=>x.assetId===assetId);
+}
+function assetMonthlyExpense(assetId){
+  return sum(assetExpenses(assetId).filter(x=>x.countMonthly).map(x=>{
+    const v=Number(x.amount)||0;
+    if(!x.prorate) return x.frequency==="monthly"?v:0;
+    return x.frequency==="annual"?v/12:x.frequency==="quarterly"?v/3:x.frequency==="semiannual"?v/6:v;
+  }));
+}
+function assetExpenseForm(asset){
+  const categories=asset.kind==="home"
+    ? ["Seguro hogar","Impuestos","Comunidad","Agua","Electricidad","Gas","Internet","Mantenimiento","Reparaciones","Otros"]
+    : ["Combustible","Seguro","Impuesto","ITV","Mantenimiento","Reparaciones","Parking","Peajes","Lavado","Otros"];
+  openModal(`Gasto de ${esc(asset.name)}`,`
+    <form class="form">
+      <label>Concepto<select name="category">${categories.map(c=>`<option>${c}</option>`).join("")}</select></label>
+      <label>Importe (€)<input name="amount" type="number" min="0" step="0.01" required></label>
+      <label>Periodicidad<select name="frequency"><option value="monthly">Mensual</option><option value="quarterly">Trimestral</option><option value="semiannual">Semestral</option><option value="annual">Anual</option><option value="oneoff">Puntual</option></select></label>
+      <label>Fecha<input name="date" type="date" value="${today()}"></label>
+      <label class="check"><input type="checkbox" name="prorate" checked> Prorratear este gasto</label>
+      <label class="check"><input type="checkbox" name="countMonthly" checked> Contarlo en gastos mensuales previstos</label>
+      <label>Nota<input name="note" placeholder="Opcional"></label>
+      <button class="primary">Guardar gasto</button>
+    </form>`,
+    fd=>{
+      const v=Object.fromEntries(fd);
+      v.id=uid(); v.assetId=asset.id; v.amount=Number(v.amount||0);
+      v.prorate=!!v.prorate; v.countMonthly=!!v.countMonthly;
+      if(v.frequency==="oneoff"){v.prorate=false;v.countMonthly=false}
+      if(v.frequency==="monthly")v.prorate=true;
+      db.assetExpenses.push(v); save(); closeModal();
+    });
+}
+function assetDetail(assetId){
+  const asset=db.assets.find(a=>a.id===assetId);
+  if(!asset)return;
+  const list=assetExpenses(assetId);
+  const monthly=assetMonthlyExpense(assetId);
+  const total=sum(list.map(x=>x.amount));
+  const kind=asset.kind==="home"?"VIVIENDA":asset.kind==="vehicle"?"VEHÍCULO":"ACTIVO";
+  openModal(esc(asset.name),`
+    <div class="card">
+      <div class="row"><div><small>Tipo</small><b>${kind}</b></div><div><small>Valor actual</small><b>${euro(asset.value)}</b></div></div>
+      ${asset.purchaseValue!=null?`<div class="divider"></div><div class="row"><span>Valor de compra</span><b>${euro(asset.purchaseValue)}</b></div>`:""}
+      ${asset.appraisalValue!=null?`<div class="row"><span>Valor de tasación</span><b>${euro(asset.appraisalValue)}</b></div>`:""}
+    </div>
+    <div class="sectionhead"><h2>Gastos del activo</h2><button class="mini" id="assetExpenseBtn">+ Añadir</button></div>
+    <div class="metric"><span>Gasto mensual previsto</span><strong>${euro(monthly)}</strong><small>Estos gastos alimentan automáticamente el gasto global. No es necesario introducirlos otra vez en Movimientos.</small></div>
+    ${list.length?list.map(x=>`<div class="item row"><div><b>${esc(x.category)}</b><small>${esc(x.frequency)} · ${x.prorate?"prorrateado":"sin prorratear"} · ${x.date?esc(x.date):"sin fecha"}</small></div><div><span class="amount">${euro(x.amount)}</span> <button class="danger" data-asset-expense-delete="${x.id}">×</button></div></div>`).join(""):empty("Todavía no hay gastos asociados a este activo.")}
+    <div class="divider"></div><div class="row"><span>Total registrado</span><b>${euro(total)}</b></div>
+  `);
+  const btn=document.getElementById("assetExpenseBtn");
+  if(btn)btn.onclick=()=>{closeModal();setTimeout(()=>assetExpenseForm(asset),0)};
+  modalContent.querySelectorAll("[data-asset-expense-delete]").forEach(b=>b.onclick=()=>{
+    if(!confirm("¿Eliminar este gasto del activo?"))return;
+    db.assetExpenses=db.assetExpenses.filter(x=>x.id!==b.dataset.assetExpenseDelete);
+    closeModal();save();setTimeout(()=>assetDetail(assetId),0);
+  });
+}
+
 function simpleForm(title, nameLabel, amountLabel, cb){
   openModal(title, `<form class="form"><label>${nameLabel}<input name="name" required></label><label>${amountLabel}<input name="amount" type="number" min="0" step="0.01" required></label><button class="primary">Guardar</button></form>`,
     fd=>{const v=Object.fromEntries(fd);cb(v);save();closeModal();});
@@ -223,7 +285,25 @@ $("planBtn").addEventListener("click",planForm);
 $("goalBtn").addEventListener("click",goalForm);
 $("subBtn").addEventListener("click",subForm);
 $("accountBtn").addEventListener("click",accountForm);
-$("assetBtn").addEventListener("click",()=>simpleForm("Nuevo activo","Nombre","Valor actual (€)",v=>db.assets.push({id:uid(),name:v.name,value:Number(v.amount||0),type:"Activo"})));
+$("assetBtn").addEventListener("click",()=>{
+  openModal("Añadir a patrimonio",`
+    <form class="form" id="assetForm">
+      <label>Tipo<select name="kind"><option value="home">Vivienda</option><option value="vehicle">Vehículo</option><option value="other">Otro activo</option></select></label>
+      <label>Nombre<input name="name" required placeholder="Mi vivienda, coche, inversión..."></label>
+      <label>Valor de compra (€)<input name="purchaseValue" type="number" min="0" step="0.01"></label>
+      <label>Valor actual / tasación (€)<input name="value" type="number" min="0" step="0.01" required></label>
+      <label>Fecha de compra<input name="purchaseDate" type="date"></label>
+      <label>Notas<input name="note" placeholder="Opcional"></label>
+      <button class="primary">Añadir a patrimonio</button>
+    </form>`,
+    fd=>{
+      const v=Object.fromEntries(fd);
+      v.id=uid(); v.value=Number(v.value||0);
+      v.purchaseValue=v.purchaseValue===""?null:Number(v.purchaseValue||0);
+      v.appraisalValue=v.value;
+      db.assets.push(v); save(); closeModal();
+    });
+});
 $("debtBtn").addEventListener("click",()=>simpleForm("Nueva deuda","Nombre","Capital pendiente (€)",v=>db.debts.push({id:uid(),name:v.name,outstanding:Number(v.amount||0),type:"Deuda"})));
 $("accountsOpen").addEventListener("click",()=>go("accounts"));
 $("reportsOpen").addEventListener("click",()=>go("reports"));
@@ -291,7 +371,11 @@ function renderWealth(){
   $("wealthBig").textContent=euro(netWorth());
   const included=db.accounts.filter(a=>a.includePatrimony);
   $("wealthAccounts").innerHTML=included.length?included.map(a=>`<div class="item row"><div><b>${esc(a.name)}</b><small>${typeName(a.type)}</small></div><span class="amount">${euro(a.balance)}</span></div>`).join(""):empty("Ninguna cuenta está incluida en patrimonio.");
-  $("assetList").innerHTML=db.assets.length?db.assets.map(a=>`<div class="item row"><div><b>${esc(a.name)}</b><small>Activo</small></div><div><span class="amount">${euro(a.value)}</span> <button class="danger" data-delete="asset" data-id="${a.id}">×</button></div></div>`).join(""):empty("No hay activos adicionales.");
+  $("assetList").innerHTML=db.assets.length?db.assets.map(a=>`<div class="item asset-card" data-asset-open="${a.id}">
+  <div class="row"><div><b>${esc(a.name)}</b><small>${a.kind==="home"?"Vivienda":a.kind==="vehicle"?"Vehículo":"Activo"} · valor actual ${euro(a.value)}</small></div><span>›</span></div>
+  ${a.purchaseValue!=null?`<small>Compra ${euro(a.purchaseValue)}${a.appraisalValue!=null?" · Tasación/actual "+euro(a.appraisalValue):""}</small>`:""}
+  <small>Gasto mensual previsto asociado: ${euro(assetMonthlyExpense(a.id))}</small>
+</div>`).join(""):empty("No hay activos adicionales.");
   $("debtList").innerHTML=db.debts.length?db.debts.map(d=>`<div class="item row"><div><b>${esc(d.name)}</b><small>Deuda</small></div><div><span class="amount negative">−${euro(d.outstanding)}</span> <button class="danger" data-delete="debt" data-id="${d.id}">×</button></div></div>`).join(""):empty("No hay deudas registradas.");
 }
 
@@ -320,6 +404,11 @@ function renderReports(){
   $("categoryReport").innerHTML=vals.length?vals.map(([k,v])=>`<div class="row" style="padding:8px 0"><span>${esc(k)}</span><b>${euro(v)}</b></div>`).join(""):empty("Todavía no hay gastos este mes.");
 }
 
+function bindAssetCards(){
+  document.querySelectorAll("[data-asset-open]").forEach(card=>{
+    card.onclick=()=>assetDetail(card.dataset.assetOpen);
+  });
+}
 function bindDeletes(){
   document.querySelectorAll("[data-delete]").forEach(btn=>{
     btn.onclick=()=>{
